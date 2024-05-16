@@ -13,7 +13,7 @@ export class ModelParser {
 
     private static checkSize(size: string): string {
         size = size.toLowerCase();
-        if (!this._allowedLengthTypes.includes(size) && !this.checkWhetherSizeIsNumber(size)) {
+        if (!this._allowedLengthTypes.includes(size.split('%')[0]) && !this.checkWhetherSizeIsNumber(size)) {
             throw Error(`Unsupported size "${size}".`);
         }
         return size;
@@ -63,7 +63,7 @@ export class ModelParser {
         json = json.replace(/\n/g, ``);     // remove line breaks
         json = json.trim();
         json = json.replace(/['"]/g, ``);   // remove all `'"`
-        json = json.replace(/\s*([,:;{}[\]])\s*/g, `$1`); // remove spaces around `,:;{}[]`
+        json = json.replace(/\s*([,:;{}[\]%])\s*/g, `$1`); // remove spaces around `,:;{}[]%`
         json = json.replace(/\s{2,}/g, ` `); // reduce spaces '\s'x to one ' '
         return json;
     }
@@ -124,10 +124,10 @@ export class ModelParser {
         // `{some:json[i8]}`   => `{some.i8: j}`
         // `{some:any[i8]}`    => `{some.i8: j}`
         const matches =
-            json.match(/\w+:\w+\[\w+]/g) ??
+            json.match(/\w+:\w+\[[\w%]+]/g) ??
             [];
         for (const match of matches) {
-            const groups = match.match(/(?<key>\w+):?(?<type>\w+)\[(?<size>\w+)];?/)?.groups;
+            const groups = match.match(/(?<key>\w+):?(?<type>\w+)\[(?<size>[\w%]+)];?/)?.groups;
             const {key, size, type} = groups;
             const sizeLowerCase = this.checkSize(size);
             const translatedType = this.translateType(type);
@@ -159,10 +159,10 @@ export class ModelParser {
         // `json[i8]`   => `j.i8`
         // `any[i8]`    => `j.i8`
         const matches =
-            json.match(/\w+\[\w+]/g) ??
+            json.match(/\w+\[[\w%]+]/g) ??
             [];
         for (const match of matches) {
-            const groups = match.match(/(?<type>\w+)\[(?<size>\w+)];?/)?.groups;
+            const groups = match.match(/(?<type>\w+)\[(?<size>[\w%]+)];?/)?.groups;
             const {type, size} = groups;
             const sizeLowerCase = this.checkSize(size);
             const translatedType = this.translateType(type);
@@ -216,7 +216,7 @@ export class ModelParser {
         json = json.replace(/,([}\]])/g, '$1'); // remove last useless ','
         json = json.replace(/(.*),$/, '$1'); // remove last ','
         json = json.replace(/([}\]])\s*([{[\w])/g, '$1,$2'); // add missing ',' between }] and {[
-        json = json.replace(/(\w+\.?\w*)/g, '"$1"'); // Add missing ""
+        json = json.replace(/(\w+\.?[\w%]*)/g, '"$1"'); // Add missing ""
         return json;
     }
 

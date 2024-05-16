@@ -2,7 +2,7 @@ import { Type, SpecialType } from "./types";
 
 
 export class ReadWriteBase {
-    protected dynamicTypeLengthRegex = /^(?<dynamicType>\w+)\.(?<dynamicLength>\w+)$/;
+    protected dynamicTypeLengthRegex = /^(?<dynamicType>\w+)\.(?<dynamicLength>[\w%]+)$/;
     protected staticTypeLengthRegex = /^(?<staticType>\w+)(?<staticLength>\d+)$/;
     private stringTypes = ['s', 'string'];
     private wstringTypes = ['ws', 'wstring'];

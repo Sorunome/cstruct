@@ -57,9 +57,15 @@ export class Read<T> extends ReadWriteBase {
         } = this.extractTypeAndSize(modelType, dynamicLength);
 
         // Size, get or read
-        const size = isStatic
+        let size = isStatic
             ? staticSize
-            : this._reader.read(dynamicLength) as number;
+            : this._reader.read(dynamicLength.split('%')[0]) as number;
+        if (!isStatic) {
+            const num = +dynamicLength.split('%')[1];
+            if (num) {
+                size += size%num > 0 ? num - size%num : 0;
+            }
+        }
 
         if (size === 0 && specialType === SpecialType.Buffer) {
             throw new Error(`Buffer size can not be 0.`);

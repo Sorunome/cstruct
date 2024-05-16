@@ -1,17 +1,19 @@
 import { ReadBufferBE } from "./read-buffer-be";
 import { ReadBufferLE } from "./read-buffer-le";
-import { SpecialType, StructEntry, Type } from "./types";
+import { SpecialType, StructEntry, Type, Classes } from "./types";
 import { ReadWriteBase } from "./read-write-base";
 
 
 export class Read<T> extends ReadWriteBase {
     protected _struct: T;
     protected _reader: ReadBufferLE | ReadBufferBE;
+    protected _classes: Classes;
 
     recursion(struct: T) {
         const entries: StructEntry[] = Object.entries(struct);
 
         for (const [modelKey, modelType] of entries) {
+            if (modelKey === '_type') continue;
             // Catch dynamic key
             const keyDynamicGroups = this.getDynamicTypeLengthGroupsMatch(modelKey);
 
@@ -79,6 +81,14 @@ export class Read<T> extends ReadWriteBase {
         switch (typeof modelType) {
             case 'object':
                 this.recursion(struct[modelKey]);
+                if (struct[modelKey]._type) {
+                    const className = atob(struct[modelKey]._type);
+                    if (this._classes[className]) {
+                        const instance = new this._classes[className];
+                        struct[modelKey] = Object.assign(instance, struct[modelKey]);
+                        delete struct[modelKey]._type;
+                    }
+                }
                 break;
             case 'string':
                 if (modelType === 'buf0') {

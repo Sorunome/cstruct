@@ -1,5 +1,5 @@
 import { CStruct } from "./cstruct";
-import { CStructReadResult, CStructWriteResult, Model, Types } from "./types";
+import { CStructReadResult, CStructWriteResult, Model, Types, Classes } from "./types";
 import { MakeBE } from "./make-be";
 import { WriteBE } from "./write-be";
 import { ReadBE } from "./read-be";
@@ -15,8 +15,20 @@ import { Class, CStructClassOptions } from "./decorators-types";
  * Uses Object, JSON, C_Struct lang (kind of C)
  */
 export class CStructBE<T> extends CStruct<T> {
-    private constructor(model: Model, types?: Types) {
-        super(model, types);
+    private constructor(model: Model, types?: Types, struct?: T, classes?: Classes) {
+        if (struct && classes) {
+            types ??= {};
+            types = typeof types === 'string' ? JSON.parse(types) : types;
+            types = {
+                ...<object>types,
+                ...CStructMetadata.getAllTypes(struct, classes)
+            };
+            classes = {
+                ...classes,
+                ...CStructMetadata.getAllClasses(struct),
+            };
+        }
+        super(model, types, classes);
     }
 
     make<T = any>(struct: T): CStructWriteResult {
@@ -38,7 +50,7 @@ export class CStructBE<T> extends CStruct<T> {
     }
 
     read<T = any>(buffer: Buffer, offset = 0): CStructReadResult<T> {
-        const reader = new ReadBE<T>(this.modelClone, buffer, offset);
+        const reader = new ReadBE<T>(this.modelClone, buffer, offset, this.jsonClasses);
         return {
             struct: reader.toStruct(),
             offset: reader.offset,
@@ -68,7 +80,7 @@ export class CStructBE<T> extends CStruct<T> {
         return CStructMetadata.getCStructBE(from);
     }
 
-    static fromModelTypes<T = any>(model: Model, types?: Types): CStructBE<T> {
-        return new CStructBE<T>(model, types);
+    static fromModelTypes<T = any>(model: Model, types?: Types, struct?: T, classes?: Classes): CStructBE<T> {
+        return new CStructBE<T>(model, types, struct, classes);
     }
 }

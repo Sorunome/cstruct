@@ -1,5 +1,5 @@
 import { CStruct } from "./cstruct";
-import { CStructReadResult, CStructWriteResult, Model, Types } from "./types";
+import { CStructReadResult, CStructWriteResult, Model, Types, Classes } from "./types";
 import { MakeLE } from "./make-le";
 import { WriteLE } from "./write-le";
 import { ReadLE } from "./read-le";
@@ -15,8 +15,20 @@ import { Class, CStructClassOptions } from "./decorators-types";
  * Uses Object, JSON, C_Struct lang (kind of C)
  */
 export class CStructLE<T> extends CStruct<T> {
-    constructor(model: Model, types?: Types) {
-        super(model, types);
+    constructor(model: Model, types?: Types, struct?: T, classes?: Classes) {
+        if (struct && classes) {
+            types ??= {};
+            types = typeof types === 'string' ? JSON.parse(types) : types;
+            types = {
+                ...<object>types,
+                ...CStructMetadata.getAllTypes(struct, classes)
+            };
+            classes = {
+                ...classes,
+                ...CStructMetadata.getAllClasses(struct),
+            };
+        }
+        super(model, types, classes);
     }
 
     make<T = any>(struct: T): CStructWriteResult {
@@ -38,7 +50,7 @@ export class CStructLE<T> extends CStruct<T> {
     }
 
     read<T = any>(buffer: Buffer, offset = 0): CStructReadResult<T> {
-        const reader = new ReadLE<T>(this.modelClone, buffer, offset);
+        const reader = new ReadLE<T>(this.modelClone, buffer, offset, this.jsonClasses);
         return {
             struct: reader.toStruct() as T,
             offset: reader.offset,
@@ -68,7 +80,7 @@ export class CStructLE<T> extends CStruct<T> {
         return CStructMetadata.getCStructLE(from);
     }
 
-    static fromModelTypes<T = any>(model: Model, types?: Types): CStructLE<T> {
-        return new CStructLE<T>(model, types);
+    static fromModelTypes<T = any>(model: Model, types?: Types, struct?: T, classes?: Classes): CStructLE<T> {
+        return new CStructLE<T>(model, types, struct, classes);
     }
 }

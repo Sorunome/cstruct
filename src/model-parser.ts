@@ -1,4 +1,4 @@
-import { Model, Types } from "./types";
+import { Model, Types, Classes } from "./types";
 
 export class ModelParser {
     private static _allowedLengthTypes = 'u8,u16,u32,u64,i8,i16,i32,i64'.split(',');
@@ -220,16 +220,21 @@ export class ModelParser {
         return json;
     }
 
-    private static replaceModelTypesWithUserTypes(json: string, types ?: Types): string {
+    private static replaceModelTypesWithUserTypes(json: string, types ?: Types, classes ?: Classes): string {
         if (types) {
             // Parse user types
-            const parsedTypesJson = this.parseTypes(types);
+            const parsedTypesJson = this.parseTypes(types, classes);
             const parsedTypes = JSON.parse(parsedTypesJson);
 
             // Prepare replacers
             const typeEntries: [string, string][] = Object
                 .entries(parsedTypes)
-                .map(([type, replacer]) => [`"${type}"`, JSON.stringify(replacer)]);
+                .map(([type, replacer]) => {
+                    if (typeof replacer === 'object' && classes && classes[type]) {
+                        (replacer as any)._type = btoa(type);
+                    }
+                    return [`"${type}"`, JSON.stringify(replacer)];
+                });
 
             // Replace model with user types, stage 1
             typeEntries.forEach(([type, replacer]) => json = json.split(type).join(replacer));
@@ -256,7 +261,7 @@ export class ModelParser {
         }
     }
 
-    static parseTypes(types: Types): string {
+    static parseTypes(types: Types, classes?: Classes): string {
         if (!types) {
             return;
         }
@@ -267,13 +272,13 @@ export class ModelParser {
         switch (typeof types) {
             case "string":
             case "object":
-                return ModelParser.parseModel(types);
+                return ModelParser.parseModel(types, undefined, classes);
             default:
                 throw Error(`Invalid types '${types}'`);
         }
     }
 
-    static parseModel(model: Model, types ?: Types): string {
+    static parseModel(model: Model, types ?: Types, classes ?: Classes): string {
         if (!model) {
             throw Error(`Invalid model '${model ?? typeof model}'`);
         }
@@ -287,8 +292,8 @@ export class ModelParser {
         json = this.cKindFields(json);
         json = this.cKindStructs(json);
         json = this.clearJson(json);
-        json = this.replaceModelTypesWithUserTypes(json, types);
         json = this.fixJson(json);
+        json = this.replaceModelTypesWithUserTypes(json, types, classes);
 
         return json;
     }

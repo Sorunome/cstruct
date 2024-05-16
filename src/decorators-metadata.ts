@@ -1,12 +1,14 @@
-import { Model, Types } from "./types";
+import { Model, Types, Classes, Constructor } from "./types";
 import { CStructBE } from "./cstruct-be";
 import { CStructLE } from "./cstruct-le";
-import { Constructor, CStructClassOptions, CStructPropertyOptions, Dictionary } from "./decorators-types";
+import { CStructClassOptions, CStructPropertyOptions, Dictionary } from "./decorators-types";
+import { parse } from "path";
 
 
 export class CStructMetadata {
     model: Model;
     types: Types;
+    classes: Classes;
     cStruct: CStructBE<any> | CStructLE<any>;
     class: Constructor<any>;
     className: string;
@@ -15,6 +17,7 @@ export class CStructMetadata {
     constructor() {
         this.model = {};
         this.types = {};
+        this.classes = {};
         this.cStruct = null;
     }
 
@@ -28,6 +31,7 @@ export class CStructMetadata {
             if ('model' in target) {
                 metadata.model = target.model;
                 metadata.types = target.types;
+                metadata.classes = target.classes;
             }
         }
         return metadata;
@@ -42,6 +46,10 @@ export class CStructMetadata {
         const metadata = CStructMetadata.getMetadata(target);
         metadata.types = options.types;
         metadata.model = options.model ?? metadata.model;
+        metadata.classes = {
+            ...metadata.classes,
+            ...options.classes,
+        };
         metadata.class = target as unknown as Constructor<T>;
         metadata.className = target.name;
     }
@@ -52,7 +60,7 @@ export class CStructMetadata {
             if (!metadata.model) {
                 throw Error(`Provided struct is not decorated.`);
             }
-            metadata.cStruct = CStructBE.fromModelTypes(metadata.model, metadata.types);
+            metadata.cStruct = CStructBE.fromModelTypes(metadata.model, metadata.types, metadata.classes);
         }
         return metadata.cStruct as CStructBE<T>;
     }
@@ -63,7 +71,7 @@ export class CStructMetadata {
             if (!metadata.model) {
                 throw Error(`Provided struct is not decorated.`);
             }
-            metadata.cStruct = CStructLE.fromModelTypes(metadata.model, metadata.types);
+            metadata.cStruct = CStructLE.fromModelTypes(metadata.model, metadata.types, struct, metadata.classes);
         }
         return metadata.cStruct as CStructLE<T>;
     }
@@ -76,5 +84,42 @@ export class CStructMetadata {
     static getTypes<T>(struct: T): Types {
         const metadata = CStructMetadata.getMetadata(struct);
         return metadata.types;
+    }
+
+    static getAllTypes<T>(struct: T, classes?: Classes): object {
+        const metadata = CStructMetadata.getMetadata(struct);
+        classes ??= metadata.classes ?? {};
+        let types = metadata.types ?? {};
+        types = typeof types === 'string' ? JSON.parse(types) : types;
+        let model = metadata.model ?? {};
+        model = typeof model === 'string' ? JSON.parse(model) : model;
+        types = {
+            ...types,
+            [(struct as any).name]: model,
+        };
+        for (const key of Object.getOwnPropertyNames(classes)) {
+            types = {
+                ...types,
+                ...CStructMetadata.getAllTypes(classes[key]),
+            };
+        }
+        return types;
+    }
+
+    static getClasses<T>(struct: T): Classes {
+        const metadata = CStructMetadata.getMetadata(struct);
+        return metadata.classes;
+    }
+
+    static getAllClasses<T>(struct: T): Classes {
+        const metadata = CStructMetadata.getMetadata(struct);
+        let classes = metadata.classes ?? {};
+        for (const value of Object.values(metadata.classes ?? {})) {
+            classes = {
+                ...classes,
+                ...CStructMetadata.getAllClasses(value),
+            };
+        }
+        return classes;
     }
 }
